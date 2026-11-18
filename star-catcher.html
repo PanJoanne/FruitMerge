@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fruit Merge</title>
+<style>
+  *{box-sizing:border-box} body{margin:0;min-height:100vh;display:grid;place-items:center;padding:20px;background:#fff8ec;color:#45352c;font:16px/1.4 system-ui,-apple-system,sans-serif}
+  main{width:min(100%,500px)} header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px} h1{margin:0;font-size:clamp(32px,8vw,46px);letter-spacing:-2px;color:#6c4635} .sub{color:#8b7569;font-size:14px}
+  .scorebox{padding:7px 14px;border-radius:12px;background:#ead9c4;text-align:center;min-width:78px}.scorebox small{display:block;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#806a5d}.scorebox strong{font-size:21px}
+  .game{padding:12px;border-radius:18px;background:#bb9e83;box-shadow:0 14px 35px #84644430;touch-action:none;user-select:none}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;aspect-ratio:1}
+  .cell{display:grid;place-items:center;border-radius:12px;background:#d7c3ad;font-size:clamp(35px,12vw,62px);line-height:1;transition:transform .09s,background .12s}.cell.filled{background:#fff5df;box-shadow:inset 0 -3px #e9dec8}.cell.pop{animation:pop .16s ease-out}@keyframes pop{50%{transform:scale(1.14)}}
+  .controls{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:13px 2px;color:#806a5d;font-size:13px}.controls button,.actions button{border:0;border-radius:10px;padding:9px 14px;background:#6c4635;color:white;font:700 14px system-ui;cursor:pointer}.actions{display:flex;gap:8px;margin-top:10px}.actions button{flex:1;background:#ead9c4;color:#594337}.actions button:hover{filter:brightness(.97)}
+  .message{min-height:24px;margin:6px 2px;color:#8a5940;font-weight:650;text-align:center}.howto{margin:14px 2px 0;color:#806a5d;font-size:13px} .howto strong{color:#594337}
+  @media(max-width:390px){.game{padding:8px}.grid{gap:7px}.controls{font-size:12px}}
+</style>
+</head>
+<body>
+<main>
+  <header><div><h1>Fruit Merge 🍊</h1><div class="sub">A fruity spin on 2048</div></div><div class="scorebox"><small>Score</small><strong id="score">0</strong></div></header>
+  <div class="game"><div class="grid" id="grid" role="grid" aria-label="Fruit Merge board"></div></div>
+  <div class="controls"><span>Swipe or use arrow keys</span><button id="new">New game</button></div>
+  <div class="message" id="message" aria-live="polite"></div>
+  <div class="actions"><button data-move="up" aria-label="Move up">⬆️</button><button data-move="left" aria-label="Move left">⬅️</button><button data-move="down" aria-label="Move down">⬇️</button><button data-move="right" aria-label="Move right">➡️</button></div>
+  <p class="howto"><strong>How to play:</strong> Slide the fruits. Two matching fruits merge into the next fruit: 🍎 apples → 🍊 oranges → 🍌 bananas, and beyond. Reach the watermelon to win!</p>
+</main>
+<script>
+(() => {
+  const N=4, fruits=['🍎','🍊','🍌','🍇','🍓','🍍','🥝','🍉'];
+  const gridEl=document.querySelector('#grid'), scoreEl=document.querySelector('#score'), msg=document.querySelector('#message');
+  let board,score,over=false,won=false;
+  function fresh(){board=Array(N*N).fill(0);score=0;over=false;won=false;msg.textContent='';addFruit();addFruit();render();}
+  function addFruit(){const empty=[];board.forEach((v,i)=>{if(!v)empty.push(i)});if(empty.length)board[empty[Math.floor(Math.random()*empty.length)]]=Math.random()<.9?1:2;}
+  function render(){gridEl.innerHTML='';board.forEach((v,i)=>{const cell=document.createElement('div');cell.className='cell'+(v?' filled':'');cell.setAttribute('role','gridcell');cell.setAttribute('aria-label',v?fruits[Math.min(v-1,fruits.length-1)]:'empty');cell.textContent=v?fruits[Math.min(v-1,fruits.length-1)]:'';cell.dataset.index=i;gridEl.append(cell)});scoreEl.textContent=score;}
+  function lineIndices(dir,k){if(dir==='left')return [0,1,2,3].map(c=>k*N+c);if(dir==='right')return [3,2,1,0].map(c=>k*N+c);if(dir==='up')return [0,1,2,3].map(r=>r*N+k);return [3,2,1,0].map(r=>r*N+k);}
+  function move(dir){if(over)return;const before=board.join(',');let gained=0;
+    for(let k=0;k<N;k++){const ids=lineIndices(dir,k),vals=ids.map(i=>board[i]).filter(Boolean),out=[];for(let j=0;j<vals.length;j++){if(vals[j]===vals[j+1]){out.push(vals[j]+1);gained+=2**(vals[j]+1);j++;}else out.push(vals[j]);}while(out.length<N)out.push(0);ids.forEach((id,j)=>board[id]=out[j]);}
+    if(before===board.join(','))return;score+=gained;addFruit();render();
+    if(!won&&board.includes(fruits.length)){won=true;msg.textContent='You made a watermelon! Keep playing or start a new game.';}
+    if(!hasMoves()){over=true;if(!won)msg.textContent='No more moves—game over! Start a new game to play again.';else msg.textContent='No more moves! You made it to the watermelon. Start a new game?';}
+  }
+  function hasMoves(){if(board.includes(0))return true;for(let r=0;r<N;r++)for(let c=0;c<N;c++){const v=board[r*N+c];if(c<N-1&&v===board[r*N+c+1]||r<N-1&&v===board[(r+1)*N+c])return true;}return false;}
+  window.addEventListener('keydown',e=>{const dirs={ArrowLeft:'left',ArrowRight:'right',ArrowUp:'up',ArrowDown:'down'};if(dirs[e.key]){e.preventDefault();move(dirs[e.key]);}});
+  document.querySelectorAll('[data-move]').forEach(b=>b.addEventListener('click',()=>move(b.dataset.move)));
+  document.querySelector('#new').addEventListener('click',fresh);
+  let start=null;gridEl.addEventListener('pointerdown',e=>{start=[e.clientX,e.clientY];gridEl.setPointerCapture(e.pointerId)});gridEl.addEventListener('pointerup',e=>{if(!start)return;const dx=e.clientX-start[0],dy=e.clientY-start[1];start=null;if(Math.max(Math.abs(dx),Math.abs(dy))<24)return;move(Math.abs(dx)>Math.abs(dy)?(dx>0?'right':'left'):(dy>0?'down':'up'));});
+  fresh();
+})();
+</script>
+</body>
+</html>
